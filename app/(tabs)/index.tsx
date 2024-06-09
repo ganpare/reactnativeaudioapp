@@ -6,6 +6,7 @@ import FileSelector from '@/components/FileSelector';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as FileSystem from 'expo-file-system';
 import parser from 'subtitles-parser';
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 export default function HomeScreen() {
   const [wavFile, setWavFile] = useState(null);
@@ -14,6 +15,31 @@ export default function HomeScreen() {
   const [isPlaying, setIsPlaying] = useState(false);
   const soundRef = useRef(null);
   const [subtitles, setSubtitles] = useState([]);
+
+  useEffect(() => {
+    // 初期向きを設定（初期化時に PORTRAIT_UP にロック）
+    changeOrientation('PORTRAIT_UP');
+  }, []);
+
+  const changeOrientation = async (orientation) => {
+    try {
+      switch (orientation) {
+        case 'PORTRAIT_UP':
+          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+          console.log("縦向きに変更されました");
+          break;
+        case 'LANDSCAPE_LEFT':
+          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
+          console.log("横向きに変更されました");
+          break;
+        default:
+          console.log("不明な向き:", orientation);
+          break;
+      }
+    } catch (error) {
+      console.error("向き変更エラー:", error);
+    }
+  };
 
   const handleFileSelected = (file, type) => {
     if (type === 'wav' || type === 'mp3') {
@@ -141,12 +167,22 @@ export default function HomeScreen() {
         />
       </View>
 
+      {/* 画面の向きを制御するためのボタン */}
+      <View style={styles.orientationButtonContainer}>
+        <TouchableOpacity style={styles.orientationButton} onPress={() => changeOrientation('PORTRAIT_UP')}>
+          <Text style={styles.orientationButtonText}>縦向き</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.orientationButton} onPress={() => changeOrientation('LANDSCAPE_LEFT')}>
+          <Text style={styles.orientationButtonText}>横向き</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* 音声再生・字幕表示コンポーネントを中央に配置 */}
       <View style={styles.contentContainer}>
         {wavFile && (
           <View style={styles.audioContainer}>
             <AudioPlayer fileUri={wavFile.uri} soundRef={soundRef} />
-            </View>
+          </View>
         )}
         {srtFile && playbackPosition !== null && (
           <SubtitleDisplay fileUri={srtFile.uri} playbackPosition={playbackPosition} />
@@ -186,5 +222,20 @@ const styles = StyleSheet.create({
   selectedFile: { 
     marginTop: 8,
     color: 'white',
+  },
+  orientationButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    padding: 10,
+  },
+  orientationButton: {
+    backgroundColor: '#4CAF50',
+    padding: 10,
+    margin: 5,
+    borderRadius: 5,
+  },
+  orientationButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });

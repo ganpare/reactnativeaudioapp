@@ -11,7 +11,7 @@ export default function SubtitleDisplay({ fileUri, playbackPosition }) {
       try {
         const fileContent = await FileSystem.readAsStringAsync(fileUri);
         const parsedSubtitles = parser.fromSrt(fileContent);
-        console.log('Parsed Subtitles:', parsedSubtitles); // デバッグログを追加
+        // console.log('Parsed Subtitles:', parsedSubtitles); // デバッグログをコメントアウト
         setSubtitles(parsedSubtitles);
       } catch (error) {
         console.error('Error loading subtitles:', error);
@@ -28,7 +28,7 @@ export default function SubtitleDisplay({ fileUri, playbackPosition }) {
       playbackPosition >= convertTimeToSeconds(subtitle.startTime) && playbackPosition < convertTimeToSeconds(subtitle.endTime)
   );
 
-  console.log('Current Subtitle:', currentSubtitle); // デバッグログを追加
+  // console.log('Current Subtitle:', currentSubtitle); // デバッグログをコメントアウト
 
   return (
     <View style={styles.container}>
@@ -53,11 +53,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // 背景色を追加してテキストが見やすくなるように
   },
   subtitleText: {
-    fontSize: 20,
+    fontSize: 24, // 字幕テキストを大きくする
     color: 'white',
     textAlign: 'center', // テキストを中央揃え
+    paddingHorizontal: 16, // テキストの左右に余白を追加
   },
 });

@@ -1,19 +1,17 @@
-import React, { useState } from 'react';
-import { View, Button, Text, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
-export default function FileSelector({ onFileSelected }) {
-  const [selectedFile, setSelectedFile] = useState(null);
-
+export default function FileSelector({ onFileSelected, iconName, fileType }) {
   const handleFilePick = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['audio/wav', 'audio/mpeg', 'application/x-subrip'], // WAV, MP3, SRTファイルのみ許可
+        type: fileType, // 指定されたファイルタイプを使用
       });
 
       if (!result.canceled) {
         const file = result.assets[0];
-        setSelectedFile(file);
         onFileSelected(file);
       }
     } catch (err) {
@@ -22,22 +20,14 @@ export default function FileSelector({ onFileSelected }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Button title="ファイルを選択" onPress={handleFilePick} />
-      {selectedFile && (
-        <Text style={styles.selectedFile}>選択されたファイル: {selectedFile.name}</Text>
-      )}
-    </View>
+    <TouchableOpacity style={styles.button} onPress={handleFilePick}>
+      <Icon name={iconName} size={30} color="white" />
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectedFile: {
-    marginTop: 10,
+  button: {
+    padding: 10,
   },
 });

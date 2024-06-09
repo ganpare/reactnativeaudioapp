@@ -1,19 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Image, StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import AudioPlayer from '@/components/AudioPlayer';
 import SubtitleDisplay from '@/components/SubtitleDisplay';
 import FileSelector from '@/components/FileSelector';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import * as FileSystem from 'expo-file-system';
+import parser from 'subtitles-parser';
 
 export default function HomeScreen() {
   const [wavFile, setWavFile] = useState(null);
   const [srtFile, setSrtFile] = useState(null);
   const [playbackPosition, setPlaybackPosition] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   const soundRef = useRef(null);
+  const [subtitles, setSubtitles] = useState([]);
 
   const handleFileSelected = (file, type) => {
     if (type === 'wav' || type === 'mp3') {
@@ -22,7 +22,72 @@ export default function HomeScreen() {
     } else if (type === 'srt') {
       setSrtFile(file);
       console.log("SRTファイルを選択しました:", file); // デバッグログを追加
+      loadSubtitles(file.uri);
     }
+  };
+
+  const loadSubtitles = async (uri) => {
+    const fileContent = await FileSystem.readAsStringAsync(uri);
+    const parsedSubtitles = parser.fromSrt(fileContent);
+    setSubtitles(parsedSubtitles);
+  };
+
+  const handlePlayPause = async () => {
+    if (soundRef.current) {
+      const status = await soundRef.current.getStatusAsync();
+      if (status.isPlaying) {
+        await soundRef.current.pauseAsync();
+        setIsPlaying(false);
+      } else {
+        await soundRef.current.playAsync();
+        setIsPlaying(true);
+      }
+    }
+  };
+
+  const handleRewind = () => {
+    console.log("巻き戻しボタンが押されました");
+    if (subtitles.length > 0) {
+      const currentSubtitleIndex = subtitles.findIndex(
+        subtitle =>
+          playbackPosition >= convertTimeToSeconds(subtitle.startTime) &&
+          playbackPosition < convertTimeToSeconds(subtitle.endTime)
+      );
+      console.log("現在の字幕インデックス:", currentSubtitleIndex);
+      if (currentSubtitleIndex > 0) {
+        const previousSubtitle = subtitles[currentSubtitleIndex - 1];
+        const newPosition = convertTimeToSeconds(previousSubtitle.startTime);
+        console.log("新しい再生位置 (秒):", newPosition);
+        soundRef.current.setPositionAsync(newPosition * 1000);
+        setPlaybackPosition(newPosition);
+      }
+    }
+  };
+
+  const handleFastForward = () => {
+    console.log("早送りボタンが押されました");
+    if (subtitles.length > 0) {
+      const currentSubtitleIndex = subtitles.findIndex(
+        subtitle =>
+          playbackPosition >= convertTimeToSeconds(subtitle.startTime) &&
+          playbackPosition < convertTimeToSeconds(subtitle.endTime)
+      );
+      console.log("現在の字幕インデックス:", currentSubtitleIndex);
+      if (currentSubtitleIndex < subtitles.length - 1) {
+        const nextSubtitle = subtitles[currentSubtitleIndex + 1];
+        const newPosition = convertTimeToSeconds(nextSubtitle.startTime);
+        console.log("新しい再生位置 (秒):", newPosition);
+        soundRef.current.setPositionAsync(newPosition * 1000);
+        setPlaybackPosition(newPosition);
+      }
+    }
+  };
+
+  const convertTimeToSeconds = (time) => {
+    const [hours, minutes, seconds] = time.split(':');
+    const [secs, millis] = seconds.split(',');
+    const totalSeconds = parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(secs) + parseInt(millis) / 1000;
+    return totalSeconds;
   };
 
   // ファイル選択後、ファイル名を表示する
@@ -52,59 +117,64 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <View style={styles.container}>
+      {/* ファイル選択ボタンと再生ボタンを上部に移動 */}
+      <View style={styles.fileSelectorContainer}>
+        <FileSelector 
+          onFileSelected={(file) => handleFileSelected(file, 'wav')} 
+          iconName="audiotrack" 
+          fileType="audio/*" // すべての音声ファイルを選択
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-
-      {/* ファイル選択ボタンを追加 */}
-      <View style={styles.stepContainer}>
-        <FileSelector onFileSelected={(file) => handleFileSelected(file, 'wav')} />
-        {selectedWavFileName && <Text style={styles.selectedFile}>選択されたWAVファイル: {selectedWavFileName}</Text>}
+        <TouchableOpacity style={styles.button} onPress={handleRewind}>
+          <Icon name="fast-rewind" size={30} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={handlePlayPause}>
+          <Icon name={isPlaying ? "pause" : "play-arrow"} size={30} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={handleFastForward}>
+          <Icon name="fast-forward" size={30} color="white" />
+        </TouchableOpacity>
+        <FileSelector 
+          onFileSelected={(file) => handleFileSelected(file, 'srt')} 
+          iconName="subtitles" 
+          fileType="application/x-subrip" // 字幕ファイルを選択
+        />
       </View>
-      <View style={styles.stepContainer}>
-        <FileSelector onFileSelected={(file) => handleFileSelected(file, 'srt')} />
-        {selectedSrtFileName && <Text style={styles.selectedFile}>選択されたSRTファイル: {selectedSrtFileName}</Text>}
-      </View>
 
-      {/* 音声再生・字幕表示コンポーネントを追加 */}
-      {wavFile && (
-        <View style={styles.audioContainer}>
-          <AudioPlayer fileUri={wavFile.uri} soundRef={soundRef} />
-        </View>
-      )}
-      {srtFile && playbackPosition !== null && (
-        <SubtitleDisplay fileUri={srtFile.uri} playbackPosition={playbackPosition} />
-      )}
-    </ParallaxScrollView>
+      {/* 音声再生・字幕表示コンポーネントを中央に配置 */}
+      <View style={styles.contentContainer}>
+        {wavFile && (
+          <View style={styles.audioContainer}>
+            <AudioPlayer fileUri={wavFile.uri} soundRef={soundRef} />
+            </View>
+        )}
+        {srtFile && playbackPosition !== null && (
+          <SubtitleDisplay fileUri={srtFile.uri} playbackPosition={playbackPosition} />
+        )}
+      </View>
+    </View>
   );
 }
 
-// ... (既存のstyles)
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: '#000', // 背景色を黒に設定
+  },
+  fileSelectorContainer: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
+    padding: 16,
+    backgroundColor: '#1D3D47', // 上部の背景色を設定
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  button: {
+    padding: 10,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   audioContainer: { 
     flexDirection: 'row',

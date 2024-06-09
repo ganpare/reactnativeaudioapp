@@ -1,4 +1,8 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { Image, StyleSheet, View, Text } from 'react-native';
+import AudioPlayer from '@/components/AudioPlayer';
+import SubtitleDisplay from '@/components/SubtitleDisplay';
+import FileSelector from '@/components/FileSelector';
 
 import { HelloWave } from '@/components/HelloWave';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
@@ -6,6 +10,47 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 
 export default function HomeScreen() {
+  const [wavFile, setWavFile] = useState(null);
+  const [srtFile, setSrtFile] = useState(null);
+  const [playbackPosition, setPlaybackPosition] = useState(0);
+  const soundRef = useRef(null);
+
+  const handleFileSelected = (file, type) => {
+    if (type === 'wav' || type === 'mp3') {
+      setWavFile(file);
+      console.log("WAV/MP3ファイルを選択しました:", file); // デバッグログを追加
+    } else if (type === 'srt') {
+      setSrtFile(file);
+      console.log("SRTファイルを選択しました:", file); // デバッグログを追加
+    }
+  };
+
+  // ファイル選択後、ファイル名を表示する
+  const [selectedWavFileName, setSelectedWavFileName] = useState('');
+  const [selectedSrtFileName, setSelectedSrtFileName] = useState('');
+
+  useEffect(() => {
+    if (wavFile) {
+      setSelectedWavFileName(wavFile.name);
+    }
+    if (srtFile) {
+      setSelectedSrtFileName(srtFile.name);
+    }
+  }, [wavFile, srtFile]);
+
+  useEffect(() => {
+    const updatePlaybackPosition = async () => {
+      if (soundRef.current) {
+        const status = await soundRef.current.getStatusAsync();
+        const position = status.positionMillis / 1000;
+        setPlaybackPosition(position);
+      }
+    };
+
+    const interval = setInterval(updatePlaybackPosition, 1000); // ログの頻度を減らすために1秒ごとに更新
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -19,37 +64,31 @@ export default function HomeScreen() {
         <ThemedText type="title">Welcome!</ThemedText>
         <HelloWave />
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({ ios: 'cmd + d', android: 'cmd + m' })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
+
+      {/* ファイル選択ボタンを追加 */}
+      <View style={styles.stepContainer}>
+        <FileSelector onFileSelected={(file) => handleFileSelected(file, 'wav')} />
+        {selectedWavFileName && <Text style={styles.selectedFile}>選択されたWAVファイル: {selectedWavFileName}</Text>}
+      </View>
+      <View style={styles.stepContainer}>
+        <FileSelector onFileSelected={(file) => handleFileSelected(file, 'srt')} />
+        {selectedSrtFileName && <Text style={styles.selectedFile}>選択されたSRTファイル: {selectedSrtFileName}</Text>}
+      </View>
+
+      {/* 音声再生・字幕表示コンポーネントを追加 */}
+      {wavFile && (
+        <View style={styles.audioContainer}>
+          <AudioPlayer fileUri={wavFile.uri} soundRef={soundRef} />
+        </View>
+      )}
+      {srtFile && playbackPosition !== null && (
+        <SubtitleDisplay fileUri={srtFile.uri} playbackPosition={playbackPosition} />
+      )}
     </ParallaxScrollView>
   );
 }
 
+// ... (既存のstyles)
 const styles = StyleSheet.create({
   titleContainer: {
     flexDirection: 'row',
@@ -66,5 +105,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     position: 'absolute',
+  },
+  audioContainer: { 
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 16,
+  },
+  selectedFile: { 
+    marginTop: 8,
+    color: 'white',
   },
 });

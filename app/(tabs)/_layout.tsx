@@ -1,4 +1,3 @@
-// app/(tabs)/_layout.tsx
 import { Tabs } from 'expo-router';
 import React from 'react';
 
@@ -30,6 +29,15 @@ export default function TabLayout() {
           title: 'Explore',
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'code-slash' : 'code-slash-outline'} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="filelist"
+        options={{
+          title: 'File List',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'list' : 'list-outline'} color={color} />
           ),
         }}
       />

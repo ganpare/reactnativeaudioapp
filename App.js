@@ -1,5 +1,5 @@
 // App.js
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import FileSelector from './components/FileSelector';
 import AudioPlayer from './components/AudioPlayer';
@@ -8,8 +8,8 @@ import SubtitleDisplay from './components/SubtitleDisplay';
 export default function App() {
   const [wavFile, setWavFile] = useState(null);
   const [srtFile, setSrtFile] = useState(null);
-  const [playbackPosition, setPlaybackPosition] = useState(0);+
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const [playbackPosition, setPlaybackPosition] = useState(0);
+  const soundRef = useRef(null);
 
   const handleWavFileSelected = file => {
     setWavFile(file);
@@ -34,11 +34,10 @@ export default function App() {
 
   return (
     <View style={styles.container}>
+      <FileSelector onFileSelected={handleWavFileSelected} iconName="audiotrack" fileType="audio/*" />
+      <FileSelector onFileSelected={handleSrtFileSelected} iconName="subtitles" fileType="application/x-subrip" />
       {wavFile && (
-        <AudioPlayer
-          fileUri={wavFile.uri}
-          soundRef={soundRef} // soundRef を渡す
-        />
+        <AudioPlayer fileUri={wavFile.uri} soundRef={soundRef} />
       )}
       {srtFile && (
         <SubtitleDisplay fileUri={srtFile.uri} playbackPosition={playbackPosition} />

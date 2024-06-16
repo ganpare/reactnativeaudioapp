@@ -1,17 +1,15 @@
-// app/(tabs)/index.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import AudioPlayer from '@/components/AudioPlayer';
 import SubtitleDisplay from '@/components/SubtitleDisplay';
-import FileSelector from '@/components/FileSelector';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as FileSystem from 'expo-file-system';
 import parser from 'subtitles-parser';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { FileContext } from '../../context/FileContext';
 
 export default function HomeScreen() {
-  const [wavFile, setWavFile] = useState(null);
-  const [srtFile, setSrtFile] = useState(null);
+  const { wavFile, srtFile } = useContext(FileContext);
   const [playbackPosition, setPlaybackPosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const soundRef = useRef(null);
@@ -21,6 +19,19 @@ export default function HomeScreen() {
     // 初期向きを設定（初期化時に PORTRAIT_UP にロック）
     changeOrientation('PORTRAIT_UP');
   }, []);
+
+  useEffect(() => {
+    if (srtFile) {
+      loadSubtitles(srtFile.uri);
+    }
+  }, [srtFile]);
+
+  useEffect(() => {
+    if (wavFile && soundRef.current) {
+      soundRef.current.loadAsync({ uri: wavFile.uri });
+      setIsPlaying(false);  // 再生状態をリセット
+    }
+  }, [wavFile]);
 
   const changeOrientation = async (orientation) => {
     try {
@@ -39,17 +50,6 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.error("向き変更エラー:", error);
-    }
-  };
-
-  const handleFileSelected = (file, type) => {
-    if (type === 'wav' || type === 'mp3') {
-      setWavFile(file);
-      console.log("WAV/MP3ファイルを選択しました:", file); // デバッグログを追加
-    } else if (type === 'srt') {
-      setSrtFile(file);
-      console.log("SRTファイルを選択しました:", file); // デバッグログを追加
-      loadSubtitles(file.uri);
     }
   };
 
@@ -117,41 +117,9 @@ export default function HomeScreen() {
     return totalSeconds;
   };
 
-  // ファイル選択後、ファイル名を表示する
-  const [selectedWavFileName, setSelectedWavFileName] = useState('');
-  const [selectedSrtFileName, setSelectedSrtFileName] = useState('');
-
-  useEffect(() => {
-    if (wavFile) {
-      setSelectedWavFileName(wavFile.name);
-    }
-    if (srtFile) {
-      setSelectedSrtFileName(srtFile.name);
-    }
-  }, [wavFile, srtFile]);
-
-  useEffect(() => {
-    const updatePlaybackPosition = async () => {
-      if (soundRef.current) {
-        const status = await soundRef.current.getStatusAsync();
-        const position = status.positionMillis / 1000;
-        setPlaybackPosition(position);
-      }
-    };
-
-    const interval = setInterval(updatePlaybackPosition, 1000); // ログの頻度を減らすために1秒ごとに更新
-    return () => clearInterval(interval);
-  }, []);
-
   return (
     <View style={styles.container}>
-      {/* ファイル選択ボタンと再生ボタンを上部に移動 */}
       <View style={styles.fileSelectorContainer}>
-        <FileSelector 
-          onFileSelected={(file) => handleFileSelected(file, 'wav')} 
-          iconName="audiotrack" 
-          fileType="audio/*" // すべての音声ファイルを選択
-        />
         <TouchableOpacity style={styles.button} onPress={handleRewind}>
           <Icon name="fast-rewind" size={30} color="white" />
         </TouchableOpacity>
@@ -161,14 +129,7 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.button} onPress={handleFastForward}>
           <Icon name="fast-forward" size={30} color="white" />
         </TouchableOpacity>
-        <FileSelector 
-          onFileSelected={(file) => handleFileSelected(file, 'srt')} 
-          iconName="subtitles" 
-          fileType="application/x-subrip" // 字幕ファイルを選択
-        />
       </View>
-
-      {/* 画面の向きを制御するためのボタン */}
       <View style={styles.orientationButtonContainer}>
         <TouchableOpacity style={styles.orientationButton} onPress={() => changeOrientation('PORTRAIT_UP')}>
           <Text style={styles.orientationButtonText}>縦向き</Text>
@@ -177,8 +138,6 @@ export default function HomeScreen() {
           <Text style={styles.orientationButtonText}>横向き</Text>
         </TouchableOpacity>
       </View>
-
-      {/* 音声再生・字幕表示コンポーネントを中央に配置 */}
       <View style={styles.contentContainer}>
         {wavFile && (
           <View style={styles.audioContainer}>
@@ -196,14 +155,14 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000', // 背景色を黒に設定
+    backgroundColor: '#000',
   },
   fileSelectorContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#1D3D47', // 上部の背景色を設定
+    backgroundColor: '#1D3D47',
   },
   button: {
     padding: 10,
@@ -213,16 +172,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  audioContainer: { 
+  audioContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 16,
     marginBottom: 16,
-  },
-  selectedFile: { 
-    marginTop: 8,
-    color: 'white',
   },
   orientationButtonContainer: {
     flexDirection: 'row',

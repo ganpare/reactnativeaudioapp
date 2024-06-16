@@ -7,7 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 export default function FileListScreen() {
   const [files, setFiles] = useState([]);
   const [permissionGranted, setPermissionGranted] = useState(false);
-  const { setWavFile, setSrtFile } = useContext(FileContext);
+  const { setWavFile, setSrtFile, setFileList } = useContext(FileContext); // setFileListを追加
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -47,6 +47,7 @@ export default function FileListScreen() {
           const files = await FileSystem.readDirectoryAsync('file:///storage/5BC9-9B1F/Download/luna/');
           const filteredFiles = filterFiles(files);
           setFiles(filteredFiles);
+          setFileList(filteredFiles); // ファイルリストを設定
         } catch (err) {
           console.error('Error reading directory:', err);
         }

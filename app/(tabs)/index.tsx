@@ -1,41 +1,77 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import AudioPlayer from '@/components/AudioPlayer';
+import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import SubtitleDisplay from '@/components/SubtitleDisplay';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as FileSystem from 'expo-file-system';
 import parser from 'subtitles-parser';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { Audio } from 'expo-av';
 import { FileContext } from '../../context/FileContext';
 
 export default function HomeScreen() {
-  const { wavFile, srtFile } = useContext(FileContext);
+  const { wavFile, srtFile, setWavFile, setSrtFile, fileList } = useContext(FileContext);
   const [playbackPosition, setPlaybackPosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const soundRef = useRef(null);
   const [subtitles, setSubtitles] = useState([]);
+  const [orientation, setOrientation] = useState('PORTRAIT_UP');
 
   useEffect(() => {
-    // 初期向きを設定（初期化時に PORTRAIT_UP にロック）
     changeOrientation('PORTRAIT_UP');
   }, []);
 
   useEffect(() => {
     if (srtFile) {
+      console.log('Loading subtitles from', srtFile.uri);
       loadSubtitles(srtFile.uri);
     }
   }, [srtFile]);
 
   useEffect(() => {
-    if (wavFile && soundRef.current) {
-      soundRef.current.loadAsync({ uri: wavFile.uri });
-      setIsPlaying(false);  // 再生状態をリセット
+    const loadAudio = async () => {
+      try {
+        console.log('Loading Sound', wavFile.uri); // デバッグログ
+        if (soundRef.current) {
+          await soundRef.current.unloadAsync();
+        }
+        const { sound } = await Audio.Sound.createAsync({ uri: wavFile.uri });
+        soundRef.current = sound;
+        console.log('Sound loaded successfully'); // デバッグログ
+      } catch (error) {
+        console.error("Error loading sound:", error);
+      }
+    };
+
+    if (wavFile) {
+      loadAudio();
     }
+
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+    };
   }, [wavFile]);
 
-  const changeOrientation = async (orientation) => {
+  useEffect(() => {
+    const updatePlaybackPosition = async () => {
+      if (soundRef.current) {
+        const status = await soundRef.current.getStatusAsync();
+        if (status.isLoaded) {
+          const position = status.positionMillis / 1000;
+          setPlaybackPosition(position);
+          console.log('Playback position updated to', position);
+        }
+      }
+    };
+
+    const interval = setInterval(updatePlaybackPosition, 1000); // 1秒ごとに再生位置を更新
+    return () => clearInterval(interval);
+  }, []);
+
+  const changeOrientation = async (newOrientation) => {
     try {
-      switch (orientation) {
+      switch (newOrientation) {
         case 'PORTRAIT_UP':
           await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
           console.log("縦向きに変更されました");
@@ -45,27 +81,40 @@ export default function HomeScreen() {
           console.log("横向きに変更されました");
           break;
         default:
-          console.log("不明な向き:", orientation);
+          console.log("不明な向き:", newOrientation);
           break;
       }
+      setOrientation(newOrientation);
     } catch (error) {
       console.error("向き変更エラー:", error);
     }
   };
 
+  const toggleOrientation = () => {
+    const newOrientation = orientation === 'PORTRAIT_UP' ? 'LANDSCAPE_LEFT' : 'PORTRAIT_UP';
+    changeOrientation(newOrientation);
+  };
+
   const loadSubtitles = async (uri) => {
-    const fileContent = await FileSystem.readAsStringAsync(uri);
-    const parsedSubtitles = parser.fromSrt(fileContent);
-    setSubtitles(parsedSubtitles);
+    try {
+      const fileContent = await FileSystem.readAsStringAsync(uri);
+      const parsedSubtitles = parser.fromSrt(fileContent);
+      setSubtitles(parsedSubtitles);
+      console.log('Subtitles loaded successfully');
+    } catch (error) {
+      console.error("Error loading subtitles:", error);
+    }
   };
 
   const handlePlayPause = async () => {
     if (soundRef.current) {
       const status = await soundRef.current.getStatusAsync();
       if (status.isPlaying) {
+        console.log('Pausing playback');
         await soundRef.current.pauseAsync();
         setIsPlaying(false);
       } else {
+        console.log('Starting playback');
         await soundRef.current.playAsync();
         setIsPlaying(true);
       }
@@ -117,8 +166,43 @@ export default function HomeScreen() {
     return totalSeconds;
   };
 
+  const handleNext = () => {
+    console.log("Current wavFile:", wavFile); // デバッグログ
+    console.log("File list:", fileList); // デバッグログ
+    const currentIndex = fileList.findIndex(file => `file:///storage/5BC9-9B1F/Download/luna/${file}.wav` === wavFile?.uri);
+    console.log('Current index:', currentIndex); // デバッグログ
+    if (currentIndex < fileList.length - 1 && currentIndex !== -1) {
+      const nextFile = fileList[currentIndex + 1];
+      console.log('Next file:', nextFile); // デバッグログ
+      setWavFile({ uri: `file:///storage/5BC9-9B1F/Download/luna/${nextFile}.wav`, name: `${nextFile}.wav` });
+      setSrtFile({ uri: `file:///storage/5BC9-9B1F/Download/luna/${nextFile}.srt`, name: `${nextFile}.srt` });
+    } else {
+      console.log('No next file available'); // デバッグログ
+    }
+  };
+
+  const handlePrevious = () => {
+    console.log("Current wavFile:", wavFile); // デバッグログ
+    console.log("File list:", fileList); // デバッグログ
+    const currentIndex = fileList.findIndex(file => `file:///storage/5BC9-9B1F/Download/luna/${file}.wav` === wavFile?.uri);
+    console.log('Current index:', currentIndex); // デバッグログ
+    if (currentIndex > 0) {
+      const previousFile = fileList[currentIndex - 1];
+      console.log('Previous file:', previousFile); // デバッグログ
+      setWavFile({ uri: `file:///storage/5BC9-9B1F/Download/luna/${previousFile}.wav`, name: `${previousFile}.wav` });
+      setSrtFile({ uri: `file:///storage/5BC9-9B1F/Download/luna/${previousFile}.srt`, name: `${previousFile}.srt` });
+    } else {
+      console.log('No previous file available'); // デバッグログ
+    }
+  };
+
   return (
     <View style={styles.container}>
+      {wavFile?.name && (
+        <View style={styles.fileNameContainer}>
+          <Text style={styles.fileNameText}>{wavFile.name.replace('.wav', '')}</Text>
+        </View>
+      )}
       <View style={styles.fileSelectorContainer}>
         <TouchableOpacity style={styles.button} onPress={handleRewind}>
           <Icon name="fast-rewind" size={30} color="white" />
@@ -129,21 +213,17 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.button} onPress={handleFastForward}>
           <Icon name="fast-forward" size={30} color="white" />
         </TouchableOpacity>
-      </View>
-      <View style={styles.orientationButtonContainer}>
-        <TouchableOpacity style={styles.orientationButton} onPress={() => changeOrientation('PORTRAIT_UP')}>
-          <Text style={styles.orientationButtonText}>縦向き</Text>
+        <TouchableOpacity style={styles.button} onPress={handlePrevious}>
+          <Icon name="skip-previous" size={30} color="white" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.orientationButton} onPress={() => changeOrientation('LANDSCAPE_LEFT')}>
-          <Text style={styles.orientationButtonText}>横向き</Text>
+        <TouchableOpacity style={styles.button} onPress={handleNext}>
+          <Icon name="skip-next" size={30} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={toggleOrientation}>
+          <Icon name={orientation === 'PORTRAIT_UP' ? "screen-lock-portrait" : "screen-lock-landscape"} size={30} color="white" />
         </TouchableOpacity>
       </View>
       <View style={styles.contentContainer}>
-        {wavFile && (
-          <View style={styles.audioContainer}>
-            <AudioPlayer fileUri={wavFile.uri} soundRef={soundRef} />
-          </View>
-        )}
         {srtFile && playbackPosition !== null && (
           <SubtitleDisplay fileUri={srtFile.uri} playbackPosition={playbackPosition} />
         )}
@@ -156,6 +236,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  fileNameContainer: {
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: '#1D3D47',
+  },
+  fileNameText: {
+    fontSize: 18,
+    color: 'white',
   },
   fileSelectorContainer: {
     flexDirection: 'row',
@@ -178,20 +267,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
     marginBottom: 16,
-  },
-  orientationButtonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    padding: 10,
-  },
-  orientationButton: {
-    backgroundColor: '#4CAF50',
-    padding: 10,
-    margin: 5,
-    borderRadius: 5,
-  },
-  orientationButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
   },
 });

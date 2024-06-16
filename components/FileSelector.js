@@ -1,3 +1,4 @@
+// components/FileSelector.js
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';

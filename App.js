@@ -1,3 +1,4 @@
+// App.js
 import React, { useState, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import FileSelector from './components/FileSelector';

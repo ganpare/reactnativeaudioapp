@@ -1,3 +1,4 @@
+// app/(tabs)/index.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import AudioPlayer from '@/components/AudioPlayer';

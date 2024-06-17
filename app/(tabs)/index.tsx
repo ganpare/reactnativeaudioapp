@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text, Dimensions } from 'react-native';
 import SubtitleDisplay from '@/components/SubtitleDisplay';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as FileSystem from 'expo-file-system';
@@ -7,10 +7,12 @@ import parser from 'subtitles-parser';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Audio } from 'expo-av';
 import { FileContext } from '../../context/FileContext';
+import Slider from '@react-native-community/slider';
 
 export default function HomeScreen() {
   const { wavFile, srtFile, setWavFile, setSrtFile, fileList } = useContext(FileContext);
   const [playbackPosition, setPlaybackPosition] = useState(0);
+  const [playbackDuration, setPlaybackDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const soundRef = useRef(null);
   const [subtitles, setSubtitles] = useState([]);
@@ -22,7 +24,6 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (srtFile) {
-      console.log('Loading subtitles from', srtFile.uri);
       loadSubtitles(srtFile.uri);
     }
   }, [srtFile]);
@@ -30,13 +31,14 @@ export default function HomeScreen() {
   useEffect(() => {
     const loadAudio = async () => {
       try {
-        console.log('Loading Sound', wavFile.uri); // デバッグログ
         if (soundRef.current) {
           await soundRef.current.unloadAsync();
         }
         const { sound } = await Audio.Sound.createAsync({ uri: wavFile.uri });
         soundRef.current = sound;
-        console.log('Sound loaded successfully'); // デバッグログ
+        sound.setOnPlaybackStatusUpdate(onPlaybackStatusUpdate);
+        await sound.playAsync();
+        setIsPlaying(true);
       } catch (error) {
         console.error("Error loading sound:", error);
       }
@@ -49,39 +51,32 @@ export default function HomeScreen() {
     return () => {
       if (soundRef.current) {
         soundRef.current.unloadAsync();
+        soundRef.current = null;
       }
     };
   }, [wavFile]);
 
-  useEffect(() => {
-    const updatePlaybackPosition = async () => {
-      if (soundRef.current) {
-        const status = await soundRef.current.getStatusAsync();
-        if (status.isLoaded) {
-          const position = status.positionMillis / 1000;
-          setPlaybackPosition(position);
-          console.log('Playback position updated to', position);
-        }
-      }
-    };
+  const onPlaybackStatusUpdate = status => {
+    if (status.isLoaded) {
+      setPlaybackPosition(status.positionMillis);
+      setPlaybackDuration(status.durationMillis);
 
-    const interval = setInterval(updatePlaybackPosition, 1000); // 1秒ごとに再生位置を更新
-    return () => clearInterval(interval);
-  }, []);
+      if (status.didJustFinish && !status.isLooping) {
+        handleNext();
+      }
+    }
+  };
 
   const changeOrientation = async (newOrientation) => {
     try {
       switch (newOrientation) {
         case 'PORTRAIT_UP':
           await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-          console.log("縦向きに変更されました");
           break;
         case 'LANDSCAPE_LEFT':
           await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
-          console.log("横向きに変更されました");
           break;
         default:
-          console.log("不明な向き:", newOrientation);
           break;
       }
       setOrientation(newOrientation);
@@ -97,10 +92,9 @@ export default function HomeScreen() {
 
   const loadSubtitles = async (uri) => {
     try {
-      const fileContent = await FileSystem.readAsStringAsync(uri);
+      const fileContent = await FileSystem.readAsStringAsync(decodeURIComponent(uri));
       const parsedSubtitles = parser.fromSrt(fileContent);
       setSubtitles(parsedSubtitles);
-      console.log('Subtitles loaded successfully');
     } catch (error) {
       console.error("Error loading subtitles:", error);
     }
@@ -110,11 +104,9 @@ export default function HomeScreen() {
     if (soundRef.current) {
       const status = await soundRef.current.getStatusAsync();
       if (status.isPlaying) {
-        console.log('Pausing playback');
         await soundRef.current.pauseAsync();
         setIsPlaying(false);
       } else {
-        console.log('Starting playback');
         await soundRef.current.playAsync();
         setIsPlaying(true);
       }
@@ -122,38 +114,32 @@ export default function HomeScreen() {
   };
 
   const handleRewind = () => {
-    console.log("巻き戻しボタンが押されました");
     if (subtitles.length > 0) {
       const currentSubtitleIndex = subtitles.findIndex(
         subtitle =>
-          playbackPosition >= convertTimeToSeconds(subtitle.startTime) &&
-          playbackPosition < convertTimeToSeconds(subtitle.endTime)
+          playbackPosition >= convertTimeToSeconds(subtitle.startTime) * 1000 &&
+          playbackPosition < convertTimeToSeconds(subtitle.endTime) * 1000
       );
-      console.log("現在の字幕インデックス:", currentSubtitleIndex);
       if (currentSubtitleIndex > 0) {
         const previousSubtitle = subtitles[currentSubtitleIndex - 1];
-        const newPosition = convertTimeToSeconds(previousSubtitle.startTime);
-        console.log("新しい再生位置 (秒):", newPosition);
-        soundRef.current.setPositionAsync(newPosition * 1000);
+        const newPosition = convertTimeToSeconds(previousSubtitle.startTime) * 1000;
+        soundRef.current.setPositionAsync(newPosition);
         setPlaybackPosition(newPosition);
       }
     }
   };
 
   const handleFastForward = () => {
-    console.log("早送りボタンが押されました");
     if (subtitles.length > 0) {
       const currentSubtitleIndex = subtitles.findIndex(
         subtitle =>
-          playbackPosition >= convertTimeToSeconds(subtitle.startTime) &&
-          playbackPosition < convertTimeToSeconds(subtitle.endTime)
+          playbackPosition >= convertTimeToSeconds(subtitle.startTime) * 1000 &&
+          playbackPosition < convertTimeToSeconds(subtitle.endTime) * 1000
       );
-      console.log("現在の字幕インデックス:", currentSubtitleIndex);
       if (currentSubtitleIndex < subtitles.length - 1) {
         const nextSubtitle = subtitles[currentSubtitleIndex + 1];
-        const newPosition = convertTimeToSeconds(nextSubtitle.startTime);
-        console.log("新しい再生位置 (秒):", newPosition);
-        soundRef.current.setPositionAsync(newPosition * 1000);
+        const newPosition = convertTimeToSeconds(nextSubtitle.startTime) * 1000;
+        soundRef.current.setPositionAsync(newPosition);
         setPlaybackPosition(newPosition);
       }
     }
@@ -167,32 +153,34 @@ export default function HomeScreen() {
   };
 
   const handleNext = () => {
-    console.log("Current wavFile:", wavFile); // デバッグログ
-    console.log("File list:", fileList); // デバッグログ
-    const currentIndex = fileList.findIndex(file => `file:///storage/5BC9-9B1F/Download/luna/${file}.wav` === wavFile?.uri);
-    console.log('Current index:', currentIndex); // デバッグログ
-    if (currentIndex < fileList.length - 1 && currentIndex !== -1) {
+    if (!wavFile) return;
+    const currentFileName = decodeURIComponent(wavFile.uri.split('/').pop().replace('.wav', ''));
+    const currentIndex = fileList.findIndex(file => file === currentFileName);
+
+    if (currentIndex !== -1 && currentIndex < fileList.length - 1) {
       const nextFile = fileList[currentIndex + 1];
-      console.log('Next file:', nextFile); // デバッグログ
-      setWavFile({ uri: `file:///storage/5BC9-9B1F/Download/luna/${nextFile}.wav`, name: `${nextFile}.wav` });
-      setSrtFile({ uri: `file:///storage/5BC9-9B1F/Download/luna/${nextFile}.srt`, name: `${nextFile}.srt` });
-    } else {
-      console.log('No next file available'); // デバッグログ
+      setWavFile({ uri: `file:///storage/5BC9-9B1F/Download/luna/${encodeURIComponent(nextFile)}.wav`, name: `${nextFile}.wav` });
+      setSrtFile({ uri: `file:///storage/5BC9-9B1F/Download/luna/${encodeURIComponent(nextFile)}.srt`, name: `${nextFile}.srt` });
     }
   };
 
   const handlePrevious = () => {
-    console.log("Current wavFile:", wavFile); // デバッグログ
-    console.log("File list:", fileList); // デバッグログ
-    const currentIndex = fileList.findIndex(file => `file:///storage/5BC9-9B1F/Download/luna/${file}.wav` === wavFile?.uri);
-    console.log('Current index:', currentIndex); // デバッグログ
+    if (!wavFile) return;
+    const currentFileName = decodeURIComponent(wavFile.uri.split('/').pop().replace('.wav', ''));
+    const currentIndex = fileList.findIndex(file => file === currentFileName);
+
     if (currentIndex > 0) {
       const previousFile = fileList[currentIndex - 1];
-      console.log('Previous file:', previousFile); // デバッグログ
-      setWavFile({ uri: `file:///storage/5BC9-9B1F/Download/luna/${previousFile}.wav`, name: `${previousFile}.wav` });
-      setSrtFile({ uri: `file:///storage/5BC9-9B1F/Download/luna/${previousFile}.srt`, name: `${previousFile}.srt` });
-    } else {
-      console.log('No previous file available'); // デバッグログ
+      setWavFile({ uri: `file:///storage/5BC9-9B1F/Download/luna/${encodeURIComponent(previousFile)}.wav`, name: `${previousFile}.wav` });
+      setSrtFile({ uri: `file:///storage/5BC9-9B1F/Download/luna/${encodeURIComponent(previousFile)}.srt`, name: `${previousFile}.srt` });
+    }
+  };
+
+  const handleSliderValueChange = async (value) => {
+    if (soundRef.current) {
+      const newPosition = value * playbackDuration;
+      await soundRef.current.setPositionAsync(newPosition);
+      setPlaybackPosition(newPosition);
     }
   };
 
@@ -223,9 +211,22 @@ export default function HomeScreen() {
           <Icon name={orientation === 'PORTRAIT_UP' ? "screen-lock-portrait" : "screen-lock-landscape"} size={30} color="white" />
         </TouchableOpacity>
       </View>
+      <View style={styles.sliderContainer}>
+        <Text style={styles.timeText}>{(playbackPosition / 1000).toFixed(0)} s</Text>
+        <Slider
+          style={styles.slider}
+          minimumValue={0}
+          maximumValue={1}
+          value={playbackDuration ? playbackPosition / playbackDuration : 0}
+          onValueChange={handleSliderValueChange}
+          minimumTrackTintColor="#FFFFFF"
+          maximumTrackTintColor="#000000"
+        />
+        <Text style={styles.timeText}>{(playbackDuration / 1000).toFixed(0)} s</Text>
+      </View>
       <View style={styles.contentContainer}>
         {srtFile && playbackPosition !== null && (
-          <SubtitleDisplay fileUri={srtFile.uri} playbackPosition={playbackPosition} />
+          <SubtitleDisplay fileUri={srtFile.uri} playbackPosition={playbackPosition / 1000} />
         )}
       </View>
     </View>
@@ -238,13 +239,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   fileNameContainer: {
-    alignItems: 'center',
     padding: 10,
-    backgroundColor: '#1D3D47',
+    alignItems: 'center',
   },
   fileNameText: {
-    fontSize: 18,
     color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   fileSelectorContainer: {
     flexDirection: 'row',
@@ -256,16 +257,25 @@ const styles = StyleSheet.create({
   button: {
     padding: 10,
   },
+  sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: Dimensions.get('window').width - 32,
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  slider: {
+    flex: 1,
+    height: 40,
+  },
+  timeText: {
+    color: 'white',
+    width: 50,
+    textAlign: 'center',
+  },
   contentContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  audioContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-    marginBottom: 16,
   },
 });

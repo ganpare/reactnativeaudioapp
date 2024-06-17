@@ -3,10 +3,13 @@
     "name": "my-audio-app",
     "slug": "my-audio-app",
     "version": "1.0.0",
-    "orientation": "default", // ここを "default" に設定
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
@@ -33,6 +36,14 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "39a26585-08cf-4b15-9c95-2c2b17cd5f5f"
+      }
     }
   }
 }

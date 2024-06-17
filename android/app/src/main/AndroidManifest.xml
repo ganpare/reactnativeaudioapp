@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
@@ -17,17 +18,29 @@
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
-      <activity
+    <activity
         android:name=".MainActivity"
         android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
         android:label="@string/app_name"
         android:windowSoftInputMode="adjustResize"
-        android:screenOrientation="fullSensor"> <!-- ここを追加 -->
+        android:screenOrientation="fullSensor"
+        android:exported="true"> <!-- この行を追加 -->
         <intent-filter>
           <action android:name="android.intent.action.MAIN" />
           <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
-      </activity>
+    </activity>
     <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/>
+    <provider
+      android:name="expo.modules.filesystem.FileSystemFileProvider"
+      android:authorities="${applicationId}.provider"
+      android:exported="false"
+      android:grantUriPermissions="true"
+      tools:replace="android:authorities"> <!-- この行を追加 -->
+      <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/file_paths"
+        tools:replace="android:resource"/> <!-- この行を追加 -->
+    </provider>
   </application>
 </manifest>

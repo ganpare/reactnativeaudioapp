@@ -19,18 +19,16 @@ export default function App() {
     setSrtFile(file);
   };
 
-  useEffect(() => {
-    const updatePlaybackPosition = async () => {
-      if (soundRef.current) {
-        const status = await soundRef.current.getStatusAsync();
-        setPlaybackPosition(status.positionMillis / 1000);
-      }
-    };
-
-    const interval = setInterval(updatePlaybackPosition, 100);
-
-    return () => clearInterval(interval);
-  }, []);
+useEffect(() => {
+  const updatePlaybackPosition = async () => {
+    if (soundRef.current) {
+      const status = await soundRef.current.getStatusAsync();
+      setPlaybackPosition(status.positionMillis / 1000);
+    }
+  };
+  const interval = setInterval(updatePlaybackPosition, 500); // 500ミリ秒に変更
+  return () => clearInterval(interval);
+}, []);
 
   return (
     <View style={styles.container}>

@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import parser from 'subtitles-parser';
 
 export default function SubtitleDisplay({ fileUri, playbackPosition }) {
   const [subtitles, setSubtitles] = useState([]);
   const [displaySubtitles, setDisplaySubtitles] = useState([]);
-  const [animation] = useState(new Animated.Value(0));
 
   useEffect(() => {
     const loadSubtitles = async () => {
@@ -34,49 +33,27 @@ export default function SubtitleDisplay({ fileUri, playbackPosition }) {
     if (currentIndex !== -1) {
       const newDisplaySubtitles = subtitles.slice(Math.max(0, currentIndex - 2), currentIndex + 1);
       setDisplaySubtitles(newDisplaySubtitles);
-
-      // アニメーション効果
-      Animated.timing(animation, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        animation.setValue(0);
-      });
+    } else {
+      setDisplaySubtitles([]);
     }
   }, [playbackPosition, subtitles]);
 
-  const renderSubtitle = (subtitle, index) => {
-    const isCurrentSubtitle = index === displaySubtitles.length - 1;
-    const style = [
-      styles.subtitleText,
-      isCurrentSubtitle && styles.currentSubtitleText,
-      {
-        transform: [
-          {
-            translateY: animation.interpolate({
-              inputRange: [0, 1],
-              outputRange: [50, 0],
-            }),
-          },
-        ],
-        opacity: animation.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0, 1],
-        }),
-      },
-    ];
-
-    return (
-      <Animated.Text key={index} style={style}>
-        {subtitle.text}
-      </Animated.Text>
-    );
-  };
-
   return (
     <View style={styles.container}>
-      {displaySubtitles.map(renderSubtitle)}
+      {displaySubtitles.map((subtitle, index) => {
+        const isCurrentSubtitle = index === displaySubtitles.length - 1;
+        return (
+          <Text
+            key={index}
+            style={[
+              styles.subtitleText,
+              isCurrentSubtitle && styles.currentSubtitleText,
+            ]}
+          >
+            {subtitle.text}
+          </Text>
+        );
+      })}
     </View>
   );
 }

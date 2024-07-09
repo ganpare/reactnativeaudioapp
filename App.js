@@ -34,14 +34,26 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <FileSelector onFileSelected={handleWavFileSelected} iconName="audiotrack" fileType="audio/*" />
-      <FileSelector onFileSelected={handleSrtFileSelected} iconName="subtitles" fileType="application/x-subrip" />
-      {wavFile && (
-        <AudioPlayer fileUri={wavFile.uri} soundRef={soundRef} />
-      )}
-      {srtFile && (
-        <SubtitleDisplay fileUri={srtFile.uri} playbackPosition={playbackPosition} />
-      )}
+      <View style={styles.fileSelectors}>
+        <FileSelector onFileSelected={handleWavFileSelected} iconName="music-note" fileType="audio/*" />
+        <FileSelector onFileSelected={handleSrtFileSelected} iconName="subtitles" fileType="text/*" />
+      </View>
+      <View style={styles.playerContainer}>
+        {wavFile && (
+          <AudioPlayer
+            fileUri={wavFile.uri}
+            ref={soundRef}
+          />
+        )}
+      </View>
+      <View style={styles.subtitleContainer}>
+        {srtFile && (
+          <SubtitleDisplay
+            fileUri={srtFile.uri}
+            playbackPosition={playbackPosition}
+          />
+        )}
+      </View>
     </View>
   );
 }
@@ -50,5 +62,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'black',
+  },
+  fileSelectors: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 10,
+  },
+  playerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  subtitleContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 150, // 複数の字幕を表示するのに十分な高さ
+    backgroundColor: 'rgba(0,0,0,0.5)', // 背景を少し暗くして読みやすくする
   },
 });

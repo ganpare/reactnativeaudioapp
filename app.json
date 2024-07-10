@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "my-audio-app",
+    "name": "20240710ver-app",
     "slug": "my-audio-app",
     "version": "1.0.0",
     "orientation": "default",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon.webp",
     "scheme": "myapp",
     "platforms": [
       "ios",
